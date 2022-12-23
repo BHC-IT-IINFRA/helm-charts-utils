@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.name }}-set
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  serviceName: {{ .Values.name }}-svc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      containers:
+      - image: mongo
+        name: mongo
+        args: ["--dbpath","/data/db"]
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.name }}-creds
+              key: username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.name }}-creds
+              key: password
+        volumeMounts:
+        - name: {{ .Values.name }}-pvc
+          mountPath: "/data/db"
+        resources:
+{{ toYaml .Values.resources | indent 10}}
+      tolerations:
+      - key: "workloadKind"
+        operator: "Equal"
+        value: "database"
+        effect: "NoSchedule"
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ .Values.name }}-pvc
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.size | default 5}}Gi
+      storageClassName: do-block-storage
